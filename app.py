@@ -40,6 +40,17 @@ def save_keys(keys_data):
         print(f"Error al guardar claves: {e}")
         return False
 
+# --- Ruta Raíz: Estado del Servidor (Nueva Ruta) ---
+
+@app.route('/', methods=['GET'])
+def home():
+    """Ruta de prueba que verifica si el servicio está activo."""
+    return jsonify({
+        "status": "online",
+        "message": "CyruX Key API is running. Use /generateKey or /api/v1/validateKey"
+    }), 200
+
+
 # --- Ruta 1: Generador de Clave (Frontend Visible para el Usuario) ---
 
 @app.route('/generateKey', methods=['GET'])
@@ -59,7 +70,7 @@ def generate_key():
     
     # 3. Preparar la respuesta HTML para el usuario
     
-    # Fecha de expiración legible
+    # Fecha de expiración legible (ajustada a la zona horaria local para visualización)
     local_exp_time = expiration_time.astimezone() 
     exp_display = local_exp_time.strftime("%d/%m/%Y a las %H:%M:%S %Z")
 
@@ -116,7 +127,7 @@ def validate_key():
     try:
         # Convertir la string de expiración a un objeto datetime
         expiration_str = keys[key_to_validate]
-        # El formato fromisoformat es más flexible, pero lo forzamos a UTC
+        # Forzar a UTC
         expiration_time = datetime.datetime.fromisoformat(expiration_str.replace('Z', '+00:00'))
         current_time = datetime.datetime.now(datetime.timezone.utc)
 
@@ -124,7 +135,7 @@ def validate_key():
         if current_time < expiration_time:
             return jsonify({"status": "valid", "message": "Access Granted"}), 200
         else:
-            # Clave expirada: Opcionalmente, podrías borrarla del JSON aquí.
+            # Clave expirada: Devolver mensaje de invalidez
             return jsonify({"status": "invalid", "message": "Key Expired"}), 401
 
     except Exception:
