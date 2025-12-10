@@ -14,14 +14,12 @@ def load_keys():
     """Carga las claves desde keys.json o devuelve un diccionario vacío si no existe."""
     # Render puede no tener el archivo al inicio, por eso usamos un try-except
     if not os.path.exists(KEY_FILE):
-        # Si no existe, crea un archivo vacío
         with open(KEY_FILE, 'w') as f:
             json.dump({}, f)
         return {}
         
     try:
         with open(KEY_FILE, 'r') as f:
-            # Si el archivo está vacío, devuelve un diccionario vacío
             content = f.read()
             if not content:
                 return {}
@@ -40,27 +38,15 @@ def save_keys(keys_data):
         print(f"Error al guardar claves: {e}")
         return False
 
-# --- Ruta Raíz: Estado del Servidor (Nueva Ruta) ---
+# --- RUTA PRINCIPAL: Generador de Clave (Ahora en la URL Base /) ---
 
 @app.route('/', methods=['GET'])
-def home():
-    """Ruta de prueba que verifica si el servicio está activo."""
-    return jsonify({
-        "status": "online",
-        "message": "CyruX Key API is running. Use /generateKey or /api/v1/validateKey"
-    }), 200
-
-
-# --- Ruta 1: Generador de Clave (Frontend Visible para el Usuario) ---
-
-@app.route('/generateKey', methods=['GET'])
 def generate_key():
     """Genera una nueva clave, la guarda y la muestra al usuario en HTML."""
     
     # 1. Generar clave y expiración
-    new_key = str(uuid.uuid4()).replace('-', '') # Clave única sin guiones
+    new_key = str(uuid.uuid4()).replace('-', '')
     expiration_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
-    # Formato ISO 8601 (necesario para guardar como string)
     expiration_str = expiration_time.isoformat().split('.')[0] + 'Z' 
     
     # 2. Almacenar la clave
@@ -69,8 +55,6 @@ def generate_key():
     save_keys(keys)
     
     # 3. Preparar la respuesta HTML para el usuario
-    
-    # Fecha de expiración legible (ajustada a la zona horaria local para visualización)
     local_exp_time = expiration_time.astimezone() 
     exp_display = local_exp_time.strftime("%d/%m/%Y a las %H:%M:%S %Z")
 
@@ -113,38 +97,29 @@ def validate_key():
     
     key_to_validate = request.args.get('key')
     
-    # 1. Verificar si se proporcionó una clave
     if not key_to_validate:
         return jsonify({"status": "invalid", "message": "No key provided"}), 400
 
     keys = load_keys()
     
-    # 2. Verificar si la clave existe
     if key_to_validate not in keys:
         return jsonify({"status": "invalid", "message": "Key not found"}), 404
 
-    # 3. Validar el tiempo de expiración
     try:
-        # Convertir la string de expiración a un objeto datetime
         expiration_str = keys[key_to_validate]
-        # Forzar a UTC
         expiration_time = datetime.datetime.fromisoformat(expiration_str.replace('Z', '+00:00'))
         current_time = datetime.datetime.now(datetime.timezone.utc)
 
-        # Si el tiempo actual es menor que el tiempo de expiración, es válida
         if current_time < expiration_time:
             return jsonify({"status": "valid", "message": "Access Granted"}), 200
         else:
-            # Clave expirada: Devolver mensaje de invalidez
             return jsonify({"status": "invalid", "message": "Key Expired"}), 401
 
     except Exception:
-        # Error si la fecha guardada no es válida
         return jsonify({"status": "invalid", "message": "Internal format error"}), 500
 
 # --- Inicio de la Aplicación ---
 
 if __name__ == '__main__':
-    # Usar el puerto proporcionado por Render o el 5000 por defecto
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
